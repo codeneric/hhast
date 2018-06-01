@@ -1,9 +1,19 @@
 {
-  "roots": [ "src/", "codegen/", "tests/" ],
-  "builtinLinters": "all",
+  "roots": [
+    "example-files/"
+  ],
+  "builtinLinters": "none",
+  "namespaceAliases": {
+    "HHAST": "Facebook\\HHAST\\Linters"
+  },
+  "extraLinters": [
+    "HHAST\\HackToPHPLinter"
+  ],
   "overrides": [
     {
-      "patterns": [ "codegen/*" ],
+      "patterns": [
+        "codegen/*"
+      ],
       "disableAllAutoFixes": true
     }
   ]

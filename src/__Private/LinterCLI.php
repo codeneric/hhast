@@ -29,12 +29,16 @@ final class LinterCLI extends CLIWithArguments {
   protected function getSupportedOptions(): vec<CLIOptions\CLIOption> {
     return vec[
       CLIOptions\flag(
-        () ==> { $this->printPerfCounters = true; },
+        () ==> {
+          $this->printPerfCounters = true;
+        },
         'Output performance counters when finished',
         '--perf',
       ),
       CLIOptions\flag(
-        () ==> { $this->xhprof = true; },
+        () ==> {
+          $this->xhprof = true;
+        },
         'Enable XHProf profiling',
         '--xhprof',
       ),
@@ -84,9 +88,8 @@ final class LinterCLI extends CLIWithArguments {
     LinterCLIConfig $config,
     string $path,
   ): Traversable<Linters\LintError> {
-    $it = new \RecursiveIteratorIterator(
-      new \RecursiveDirectoryIterator($path),
-    );
+    $it =
+      new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($path));
     foreach ($it as $info) {
       if (!$info->isFile()) {
         continue;
@@ -94,7 +97,7 @@ final class LinterCLI extends CLIWithArguments {
       $ext = Str\lowercase($info->getExtension());
       if ($ext === 'hh' || $ext === 'php') {
         $file = $info->getPathname();
-        foreach($this->lintFile($config, $file) as $error) {
+        foreach ($this->lintFile($config, $file) as $error) {
           yield $error;
         }
       }
@@ -188,9 +191,7 @@ final class LinterCLI extends CLIWithArguments {
 
       $position = $error->getPosition();
       \printf(
-        "%s%s%s\n".
-        "  %sLinter: %s%s\n".
-        "  Location: %s\n",
+        "%s%s%s\n"."  %sLinter: %s%s\n"."  Location: %s\n",
         $colors ? "\e[1;31m" : '',
         $error->getDescription(),
         $colors ? "\e[0m" : '',
@@ -199,13 +200,18 @@ final class LinterCLI extends CLIWithArguments {
         $colors ? "\e[0m" : '',
         $position === null
           ? $error->getFile()
-          : Str\format('%s:%d:%d', $error->getFile(), $position[0], $position[1]),
+          : Str\format(
+              '%s:%d:%d',
+              $error->getFile(),
+              $position[0],
+              $position[1],
+            ),
       );
 
       $c = new PerfCounter($class.'#isFixable');
-      $fixable = $error instanceof Linters\FixableLintError
-        && (!C\contains_key($config['autoFixBlacklist'], $class))
-        && $error->isFixable();
+      $fixable = $error instanceof Linters\FixableLintError &&
+        (!C\contains_key($config['autoFixBlacklist'], $class)) &&
+        $error->isFixable();
       $c->end();
 
       if ($error instanceof Linters\FixableLintError && $fixable) {
@@ -242,21 +248,15 @@ final class LinterCLI extends CLIWithArguments {
     $linter->fixLintErrors($errors);
   }
 
-  private static function shouldFixLint(
-    Linters\FixableLintError $error,
-  ): bool {
+  private static function shouldFixLint(Linters\FixableLintError $error): bool {
     list($old, $new) = $error->getReadableFix();
     if ($old === $new) {
       self::renderLintBlame($error);
       return false;
     }
 
-    $prefix_lines = ($code, $prefix) ==>
-      \explode("\n", $code)
-      |> Vec\map(
-        $$,
-        $line ==> $prefix.$line,
-      )
+    $prefix_lines = ($code, $prefix) ==> \explode("\n", $code)
+      |> Vec\map($$, $line ==> $prefix.$line)
       |> \implode("\n", $$);
 
 
@@ -275,10 +275,7 @@ final class LinterCLI extends CLIWithArguments {
     }
 
     \printf(
-      "  Code:\n".
-      "%s%s%s\n".
-      "  Suggested fix:\n".
-      "%s%s%s\n",
+      "  Code:\n"."%s%s%s\n"."  Suggested fix:\n"."%s%s%s\n",
       $colors ? $blame_color : '',
       $prefix_lines($old, '  '.$blame_marker),
       $colors ? "\e[0m" : '',
@@ -326,20 +323,14 @@ final class LinterCLI extends CLIWithArguments {
         case '':
           return false;
         default:
-          \fprintf(
-            \STDERR,
-            "'%s' is not a valid response.\n",
-            $response,
-          );
+          \fprintf(\STDERR, "'%s' is not a valid response.\n", $response);
           $response = null;
       }
     } while ($response === null);
     return false;
   }
 
-  private static function renderLintBlame(
-    Linters\LintError $error,
-  ): void {
+  private static function renderLintBlame(Linters\LintError $error): void {
     $blame = $error->getPrettyBlame();
     if ($blame === null) {
       return;
@@ -350,10 +341,7 @@ final class LinterCLI extends CLIWithArguments {
       "  Code:\n%s%s%s\n",
       $colors ? "\e[33m" : '',
       \explode("\n", $blame)
-      |> Vec\map(
-        $$,
-        $line ==> '  >'.$line,
-      )
+      |> Vec\map($$, $line ==> '  >'.$line)
       |> \implode("\n", $$),
       $colors ? "\e[0m" : '',
     );
