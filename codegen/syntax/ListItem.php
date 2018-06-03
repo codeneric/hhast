@@ -12,7 +12,7 @@ final class ListItem extends EditableNode {
 
   private EditableNode $_item;
   private EditableNode $_separator;
-
+  public bool $is_last_item = false;
   public function __construct(EditableNode $item, EditableNode $separator) {
     parent::__construct('list_item');
     $this->_item = $item;
