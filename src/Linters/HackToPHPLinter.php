@@ -514,8 +514,13 @@ final class HackToPHPLinter extends ASTLinter<EditableNode> {
       }
 
       $node = $node->removeWhere(
-        ($n, $v) ==>
-          $n instanceof SimpleTypeSpecifier || $n instanceof ColonToken,
+        ($n, $v) ==> $n instanceof SimpleTypeSpecifier ||
+          $n instanceof ColonToken ||
+          $n instanceof VectorArrayTypeSpecifier ||
+          $n instanceof TypeParameters ||
+          $n instanceof MapArrayTypeSpecifier ||
+          $n instanceof ShapeTypeSpecifier ||
+          $n instanceof ClosureTypeSpecifier,
       );
       $php = $this->interate_children($node, $parents, $php);
       return $php;
@@ -739,7 +744,15 @@ final class HackToPHPLinter extends ASTLinter<EditableNode> {
       $node instanceof SimpleInitializer ||
       $node instanceof ConstDeclaration ||
       $node instanceof ConstantDeclarator ||
-      $node instanceof FunctionStaticStatement
+      $node instanceof FunctionStaticStatement ||
+      $node instanceof InstanceofExpression ||
+      $node instanceof QualifiedName ||
+      $node instanceof MemberSelectionExpression ||
+      $node instanceof EmbeddedMemberSelectionExpression ||
+      $node instanceof ArrayIntrinsicExpression ||
+      $node instanceof ForeachStatement ||
+      $node instanceof CastExpression ||
+      $node instanceof EmbeddedBracedExpression
     ) {
       $php = $this->interate_children($node, $parents, $php);
       return $php;
