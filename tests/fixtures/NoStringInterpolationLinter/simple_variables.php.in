@@ -1,8 +1,0 @@
-<?hh
-"foo$bar";
-"foo$bar-baz";
-"$foo";
-"${foo}bar";
-"foo${bar}";
-"foo${bar}baz${herp}derp";
-"foo{$bar}";

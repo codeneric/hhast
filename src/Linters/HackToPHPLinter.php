@@ -412,21 +412,20 @@ final class HackToPHPLinter extends ASTLinter<EditableNode> {
     EditableNode $node,
     vec<EditableNode> $parents,
   ): ?ASTLintError<EditableNode> {
-    // \var_dump($parents);
     exit($this->transpile($node, $parents, $this->placeholder));
-    // if ($node instanceof Script) {
-    //   \var_dump("we are a Script!");
-    //   $dcls = $node
-    //     ->getDeclarations()
-    //     ->getChildren();
-    // }
-    // if ($node instanceof NamespaceDeclaration) {
-    //   \var_dump("we are a NamespaceDeclaration!");
+  }
 
-    // }
-
-
-    return null;
+  private function ast_from_code(string $code): EditableNode {
+    $ast = \Facebook\HHAST\from_code($code);
+    $ast = $ast->removeWhere(($n, $v) ==> $n instanceof MarkupSection);
+    invariant($ast instanceof Script, 'AST has to be of type Script!');
+    $expressions = $ast
+      ->getDeclarations()
+      ->getChildren();
+    foreach ($expressions as $expression) {
+      return $expression;
+    }
+    invariant(false, 'ast_from_code failed!');
   }
 
   private function transpile(
@@ -435,6 +434,24 @@ final class HackToPHPLinter extends ASTLinter<EditableNode> {
     string $php,
   ): string {
     $P = $this->placeholder;
+
+
+    $childs = $node->getChildren();
+    $parents[] = $node;
+    foreach ($childs as $key => $child) {
+      if ($child instanceof SafeMemberSelectionExpression) {
+
+        $safe_member_object = $child->getObject()->getCode();
+        $safe_member_name = $child->getName()->getCode();
+
+        $sub_ast = $this->ast_from_code(
+          "is_null($safe_member_object) ? null : $safe_member_object->$safe_member_name",
+        );
+        $node = $node->replace($child, $sub_ast);
+      }
+    }
+
+
     if ($node instanceof Script) {
       $next_nodes = $node
         ->getDeclarations()
@@ -445,6 +462,7 @@ final class HackToPHPLinter extends ASTLinter<EditableNode> {
       }
       return $php;
     }
+
 
     if ($node instanceof MarkupSection) { //abstraction
       $php = $this->sprinft($php, "<?php\n$P");
@@ -472,7 +490,15 @@ final class HackToPHPLinter extends ASTLinter<EditableNode> {
     }
     if ($node instanceof NamespaceUseDeclaration) { //abstraction
       $ns_cmd = $node->getClauses()->getCode();
-      $php = $this->sprinft($php, "use \\$ns_cmd;\n$P");
+      $ft = $node->getClauses()->getFirstToken();
+      if (
+        !\is_null($ft) && $ft->getTokenKind() !== "\\"
+      ) { //TODO: mutate AST accordingly!
+        $php = $this->sprinft($php, "use \\$ns_cmd;\n$P");
+      } else {
+        $php = $this->sprinft($php, "use $ns_cmd;\n$P");
+      }
+
       return $php;
     }
 
@@ -520,7 +546,8 @@ final class HackToPHPLinter extends ASTLinter<EditableNode> {
           $n instanceof TypeParameters ||
           $n instanceof MapArrayTypeSpecifier ||
           $n instanceof ShapeTypeSpecifier ||
-          $n instanceof ClosureTypeSpecifier,
+          $n instanceof ClosureTypeSpecifier ||
+          $n instanceof NullableTypeSpecifier,
       );
       $php = $this->interate_children($node, $parents, $php);
       return $php;
@@ -682,6 +709,19 @@ final class HackToPHPLinter extends ASTLinter<EditableNode> {
       $php = $this->interate_children($node, $parents, $php);
       return $php;
     }
+    // if ($node instanceof SafeMemberSelectionExpression) {
+
+    //   $safe_member_object = $node->getObject()->getCode();
+    //   $safe_member_name = $node->getName()->getCode();
+
+    //   $sub_ast = $this->ast_from_code(
+    //     "is_null($safe_member_object) ? null : $safe_member_object->$safe_member_name",
+    //   );
+    //   $node->rewriteDescendants(, )
+    //   $node->replace($node, $sub_ast);
+    //   $php = $this->interate_children($node, $parents, $php);
+    //   return $php;
+    // }
     if (
       $node instanceof AnonymousFunction ||
       $node instanceof AnonymousFunctionUseClause ||
@@ -752,7 +792,16 @@ final class HackToPHPLinter extends ASTLinter<EditableNode> {
       $node instanceof ArrayIntrinsicExpression ||
       $node instanceof ForeachStatement ||
       $node instanceof CastExpression ||
-      $node instanceof EmbeddedBracedExpression
+      $node instanceof EmbeddedBracedExpression ||
+      $node instanceof SwitchStatement ||
+      $node instanceof SwitchSection ||
+      $node instanceof CaseLabel ||
+      $node instanceof BreakStatement ||
+      $node instanceof DefaultLabel ||
+      $node instanceof EchoStatement ||
+      $node instanceof EmptyExpression ||
+      $node instanceof TryStatement ||
+      $node instanceof CatchClause
     ) {
       $php = $this->interate_children($node, $parents, $php);
       return $php;

@@ -1,9 +1,0 @@
-<?hh
-
-use Foo as Bar;
-use type Foo as Bar;
-use namespace Foo as Bar /* trailing comment */;
-use Foo\{
-  Bar,
-  Baz as HerpDerp,
-};
