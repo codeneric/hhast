@@ -428,6 +428,22 @@ final class HackToPHPLinter extends ASTLinter<EditableNode> {
     invariant(false, 'ast_from_code failed!');
   }
 
+  private function get_php_markup(): MarkupSection {
+    $ast = \Facebook\HHAST\from_code("<?php");
+    invariant($ast instanceof Script, 'AST has to be of type Script!');
+    $expressions = $ast
+      ->getDeclarations()
+      ->getChildren();
+    foreach ($expressions as $expression) {
+      invariant(
+        $expression instanceof MarkupSection,
+        'AST has to be of type MarkupSection!',
+      );
+      return $expression;
+    }
+    invariant(false, 'ast_from_code failed!');
+  }
+
   private function transpile(
     EditableNode $node,
     vec<EditableNode> $parents,
@@ -449,6 +465,11 @@ final class HackToPHPLinter extends ASTLinter<EditableNode> {
         );
         $node = $node->replace($child, $sub_ast);
       }
+      if ($child instanceof MarkupSection) {
+
+        $php_markup = $this->get_php_markup();
+        $node = $node->replace($child, $php_markup);
+      }
     }
 
 
@@ -464,10 +485,12 @@ final class HackToPHPLinter extends ASTLinter<EditableNode> {
     }
 
 
-    if ($node instanceof MarkupSection) { //abstraction
-      $php = $this->sprinft($php, "<?php\n$P");
-      return $php;
-    }
+    // if ($node instanceof MarkupSection) { //abstraction
+
+    //   $php = $this->sprinft($php, "<?php\n$P");
+    //   return $php;
+    // }
+
     if ($node instanceof NamespaceDeclaration) {
       $code = $node
         ->getName()
@@ -801,7 +824,15 @@ final class HackToPHPLinter extends ASTLinter<EditableNode> {
       $node instanceof EchoStatement ||
       $node instanceof EmptyExpression ||
       $node instanceof TryStatement ||
-      $node instanceof CatchClause
+      $node instanceof CatchClause ||
+      $node instanceof IssetExpression ||
+      $node instanceof UnsetStatement ||
+      $node instanceof TraitUse ||
+      $node instanceof DefineExpression ||
+      $node instanceof ListExpression ||
+      $node instanceof ThrowStatement ||
+      $node instanceof MarkupSection ||
+      $node instanceof MarkupSuffix
     ) {
       $php = $this->interate_children($node, $parents, $php);
       return $php;

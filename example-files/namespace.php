@@ -4,4 +4,4 @@ namespace codeneric\x {
   use \codeneric\a;
     func();
 }
-namespace codeneric\y;
+// namespace codeneric\y;
