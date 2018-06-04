@@ -832,7 +832,9 @@ final class HackToPHPLinter extends ASTLinter<EditableNode> {
       $node instanceof ListExpression ||
       $node instanceof ThrowStatement ||
       $node instanceof MarkupSection ||
-      $node instanceof MarkupSuffix
+      $node instanceof MarkupSuffix ||
+      $node instanceof WhileStatement ||
+      $node instanceof ElseifClause
     ) {
       $php = $this->interate_children($node, $parents, $php);
       return $php;
