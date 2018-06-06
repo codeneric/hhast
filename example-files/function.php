@@ -1,7 +1,8 @@
 <?hh //strict
-function truth(string $p1, bool $p2): bool {
-    $e = new Error();
-    return true;
-}
 
-$a = truth($p1, $p2);
+namespace codeneric\phmm\legacy\validate;
+use codeneric\phmm\legacy\blub;
+
+function blub(string $v): ?blub\client_data_representation_4_0_0 {
+    return null;
+}

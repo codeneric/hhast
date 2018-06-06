@@ -429,7 +429,7 @@ final class HackToPHPLinter extends ASTLinter<EditableNode> {
   }
 
   private function get_php_markup(): MarkupSection {
-    $ast = \Facebook\HHAST\from_code("<?php");
+    $ast = \Facebook\HHAST\from_code("<?php\n");
     invariant($ast instanceof Script, 'AST has to be of type Script!');
     $expressions = $ast
       ->getDeclarations()
@@ -444,6 +444,7 @@ final class HackToPHPLinter extends ASTLinter<EditableNode> {
     invariant(false, 'ast_from_code failed!');
   }
 
+
   private function transpile(
     EditableNode $node,
     vec<EditableNode> $parents,
@@ -451,9 +452,14 @@ final class HackToPHPLinter extends ASTLinter<EditableNode> {
   ): string {
     $P = $this->placeholder;
 
+    if ($node instanceof Script) {
+      $next_nodes = $node
+        ->getDeclarations();
+      $php = $this->transpile($next_nodes, $parents, $php);
+      return $php;
+    }
 
     $childs = $node->getChildren();
-    $parents[] = $node;
     foreach ($childs as $key => $child) {
       if ($child instanceof SafeMemberSelectionExpression) {
 
@@ -465,23 +471,49 @@ final class HackToPHPLinter extends ASTLinter<EditableNode> {
         );
         $node = $node->replace($child, $sub_ast);
       }
+
       if ($child instanceof MarkupSection) {
-
-        $php_markup = $this->get_php_markup();
-        $node = $node->replace($child, $php_markup);
+        $old_suffix_name = $child->getSuffix()?->getName();
+        if (!\is_null($old_suffix_name)) {
+          $suffix_name = new NameToken(
+            $old_suffix_name->getLeading(),
+            $old_suffix_name->getTrailing(),
+            'php',
+          );
+          $php_markup = $this->get_php_markup();
+          $node = $node->replace($old_suffix_name, $suffix_name);
+        }
       }
-    }
 
-
-    if ($node instanceof Script) {
-      $next_nodes = $node
-        ->getDeclarations()
-        ->getChildren();
-      $parents[] = $node;
-      foreach ($next_nodes as $key => $next_node) {
-        $php = $this->transpile($next_node, $parents, $php);
+      if ($child instanceof CollectionLiteralExpression) {
+        $initializers = $child->getInitializers()?->getCode();
+        $sub_ast =
+          $this->ast_from_code("\\HH\\Map::hacklib_new(array($initializers))");
+        $node = $node->replace($child, $sub_ast);
+        // $node = $this->transform_ast($node);
       }
-      return $php;
+
+      if ($child instanceof EnumDeclaration) {
+        // $enum_keyword = $node->getKeyword()->getCode();
+        $enum_name = $child->getName()->getCode();
+        $enumerators = $child->getEnumerators()?->getChildren();
+        $enumerators = !\is_null($enumerators) ? $enumerators : [];
+        $code = "final class $enum_name { private function __construct() {} \n";
+        foreach ($enumerators as $e) {
+          invariant(
+            $e instanceof Enumerator,
+            'Children of EnumDeclaration has to be Enumerator',
+          );
+          $e_name = $e->getName()->getCode();
+          $e_value = $e->getValue()->getCode();
+          $code .= "const $e_name = $e_value;\n";
+        }
+        $code .= " }\n";
+        $sub_ast = $this->ast_from_code($code);
+        $node = $node->replace($child, $sub_ast);
+      }
+
+
     }
 
 
@@ -553,6 +585,7 @@ final class HackToPHPLinter extends ASTLinter<EditableNode> {
       return $php;
     }
     if ($node instanceof FunctionDeclarationHeader) {
+      $type = $node->getType();
       $args = $node->getParameterList();
 
       if (!\is_null($args)) {
@@ -570,17 +603,85 @@ final class HackToPHPLinter extends ASTLinter<EditableNode> {
           $n instanceof MapArrayTypeSpecifier ||
           $n instanceof ShapeTypeSpecifier ||
           $n instanceof ClosureTypeSpecifier ||
-          $n instanceof NullableTypeSpecifier,
+          $n instanceof NullableTypeSpecifier ||
+          $n instanceof TupleTypeSpecifier ||
+          $n instanceof GenericTypeSpecifier ||
+          $n === $type,
       );
       $php = $this->interate_children($node, $parents, $php);
       return $php;
     }
+
+    if ($node instanceof AnonymousFunction) {
+      $colon = $node->getColon();
+      $type = $node->getType();
+      $args = $node->getParameters();
+      if (!\is_null($args)) {
+        $last_token = $args->getLastToken();
+        if ($last_token instanceof CommaToken) {
+          $node = $node->removeWhere(($n, $v) ==> $last_token === $n);
+        }
+        $args_new = $args->removeWhere(
+          ($n, $v) ==> $n instanceof SimpleTypeSpecifier ||
+            $n instanceof ColonToken ||
+            $n instanceof VectorArrayTypeSpecifier ||
+            $n instanceof TypeParameters ||
+            $n instanceof MapArrayTypeSpecifier ||
+            $n instanceof ShapeTypeSpecifier ||
+            $n instanceof ClosureTypeSpecifier ||
+            $n instanceof NullableTypeSpecifier ||
+            $n instanceof GenericTypeSpecifier ||
+            $n instanceof TupleTypeSpecifier ||
+            $n === $type,
+        );
+        $node = $node->replace($args, $args_new);
+      }
+
+      $node = $node->removeWhere(($n, $v) ==> $n === $colon || $n === $type);
+      $php = $this->interate_children($node, $parents, $php);
+      return $php;
+    }
+
+    if ($node instanceof AnonymousFunctionUseClause) {
+      $args = $node->getVariables();
+      if (!\is_null($args)) {
+        $last_token = $args->getLastToken();
+        if ($last_token instanceof CommaToken) {
+          $node = $node->removeWhere(($n, $v) ==> $last_token === $n);
+        }
+        $args_new = $args->removeWhere(
+          ($n, $v) ==> $n instanceof SimpleTypeSpecifier ||
+            $n instanceof ColonToken ||
+            $n instanceof VectorArrayTypeSpecifier ||
+            $n instanceof TypeParameters ||
+            $n instanceof MapArrayTypeSpecifier ||
+            $n instanceof ShapeTypeSpecifier ||
+            $n instanceof ClosureTypeSpecifier ||
+            $n instanceof NullableTypeSpecifier ||
+            $n instanceof GenericTypeSpecifier ||
+            $n instanceof TupleTypeSpecifier,
+        );
+        $node = $node->replace($args, $args_new);
+      }
+      $php = $this->interate_children($node, $parents, $php);
+      return $php;
+    }
+
+
     if (
       $node instanceof PropertyDeclaration || $node instanceof ConstDeclaration
     ) {
       $node = $node->removeWhere(
-        ($n, $v) ==>
-          $n instanceof SimpleTypeSpecifier || $n instanceof ColonToken,
+        ($n, $v) ==> $n instanceof SimpleTypeSpecifier ||
+          $n instanceof ColonToken ||
+          $n instanceof VectorArrayTypeSpecifier ||
+          $n instanceof TypeParameters ||
+          $n instanceof MapArrayTypeSpecifier ||
+          $n instanceof ShapeTypeSpecifier ||
+          $n instanceof ClosureTypeSpecifier ||
+          $n instanceof NullableTypeSpecifier ||
+          $n instanceof GenericTypeSpecifier ||
+          $n instanceof TupleTypeSpecifier,
       );
       $php = $this->interate_children($node, $parents, $php);
       return $php;
@@ -616,30 +717,6 @@ final class HackToPHPLinter extends ASTLinter<EditableNode> {
       return $php;
     }
 
-
-    if ($node instanceof EnumDeclaration) {
-      $childs = $node->getChildren();
-      $enum_keyword = $childs['keyword'];
-      $enum_name = $childs['name']->getCode();
-
-      $code =
-        "final class $enum_name {\nprivate function __construct() {}\n$P"; //open enum {...
-      $php = $this->sprinft($php, $code);
-      $next_node = $childs['enumerators'];
-      $parents[] = $node;
-      $php = $this->transpile($next_node, $parents, $php);
-      $php = $this->sprinft($php, "}\n$P"); //close enum ...} 
-      return $php;
-    }
-    if ($node instanceof Enumerator) {
-      $childs = $node->getChildren();
-      $enumerator_name = $childs['name']->getCode();
-      $enumerator_value = $childs['value']->getCode();
-
-      $code = "const $enumerator_name = $enumerator_value;\n$P";
-      $php = $this->sprinft($php, $code);
-      return $php;
-    }
 
     if ($node instanceof IfStatement) {
       $php = $this->interate_children($node, $parents, $php);
@@ -746,29 +823,9 @@ final class HackToPHPLinter extends ASTLinter<EditableNode> {
     //   return $php;
     // }
     if (
-      $node instanceof AnonymousFunction ||
-      $node instanceof AnonymousFunctionUseClause ||
-      $node instanceof ElementInitializer ||
-      $node instanceof FieldInitializer
+      $node instanceof ElementInitializer || $node instanceof FieldInitializer
     ) {
       $php = $this->interate_children($node, $parents, $php);
-      return $php;
-    }
-
-    if ($node instanceof CollectionLiteralExpression) {
-      $childs = $node->getChildren();
-      $php = $this->sprinft($php, "\\HH\\Map::hacklib_new$P");
-      $parents[] = $node;
-      foreach ($childs as $key => $next_node) {
-        if ($key !== "name" && $key !== "left_brace" && $key !== "right_brace")
-          $php = $this->transpile($next_node, $parents, $php);
-        if ($key === "left_brace")
-          $php = $this->sprinft($php, "(array($P");
-        if ($key === "right_brace")
-          $php = $this->sprinft($php, "))$P");
-
-      }
-
       return $php;
     }
 
@@ -834,7 +891,9 @@ final class HackToPHPLinter extends ASTLinter<EditableNode> {
       $node instanceof MarkupSection ||
       $node instanceof MarkupSuffix ||
       $node instanceof WhileStatement ||
-      $node instanceof ElseifClause
+      $node instanceof ElseifClause ||
+      $node instanceof ForStatement ||
+      $node instanceof PostfixUnaryExpression
     ) {
       $php = $this->interate_children($node, $parents, $php);
       return $php;
