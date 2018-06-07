@@ -453,6 +453,8 @@ final class HackToPHPLinter extends ASTLinter<EditableNode> {
     $P = $this->placeholder;
 
     if ($node instanceof Script) {
+
+
       $next_nodes = $node
         ->getDeclarations();
       $php = $this->transpile($next_nodes, $parents, $php);
@@ -513,6 +515,10 @@ final class HackToPHPLinter extends ASTLinter<EditableNode> {
         $node = $node->replace($child, $sub_ast);
       }
 
+      if ($child instanceof AliasDeclaration) {
+        $node = $node->removeWhere(($n, $v) ==> $child === $n);
+      }
+
 
     }
 
@@ -534,10 +540,7 @@ final class HackToPHPLinter extends ASTLinter<EditableNode> {
 
       return $php;
     }
-    if ($node instanceof NamespaceBody) {
-      $php = $this->interate_children($node, $parents, $php);
-      return $php;
-    }
+
     if ($node instanceof NamespaceEmptyBody) {
       $php = $this->sprinft($php, ";\n$P");
 
@@ -557,10 +560,7 @@ final class HackToPHPLinter extends ASTLinter<EditableNode> {
       return $php;
     }
 
-    if ($node instanceof ExpressionStatement) {
-      $php = $this->interate_children($node, $parents, $php);
-      return $php;
-    }
+
     if ($node instanceof FunctionCallExpression) {
       $args = $node->getArgumentList();
       if (!\is_null($args)) {
@@ -572,18 +572,8 @@ final class HackToPHPLinter extends ASTLinter<EditableNode> {
       $php = $this->interate_children($node, $parents, $php);
       return $php;
     }
-    if ($node instanceof Missing) {
-      return $php;
-    }
 
-    if ($node instanceof AliasDeclaration) {
-      return $php;
-    }
-    if ($node instanceof FunctionDeclaration) {
 
-      $php = $this->interate_children($node, $parents, $php);
-      return $php;
-    }
     if ($node instanceof FunctionDeclarationHeader) {
       $type = $node->getType();
       $args = $node->getParameterList();
@@ -686,68 +676,9 @@ final class HackToPHPLinter extends ASTLinter<EditableNode> {
       $php = $this->interate_children($node, $parents, $php);
       return $php;
     }
-    if ($node instanceof ClassishDeclaration) {
-      // $node->getTypeParameters();
-      // $node = $node->removeWhere(
-      //   ($n, $v) ==>
-      //     // ($n instanceof SimpleTypeSpecifier && ! ($n instanceof ConstructToken)) || $n instanceof ColonToken,
-      //     $n instanceof SimpleTypeSpecifier || $n instanceof ColonToken,
-      // );
-      $php = $this->interate_children($node, $parents, $php);
-      return $php;
-    }
-    if ($node instanceof MethodishDeclaration) {
-      $header = $node->getFunctionDeclHeader();
-      // $node->getTypeParameters();
-      // $node = $node->removeWhere(
-      //   ($n, $v) ==>
-      //     // ($n instanceof SimpleTypeSpecifier && ! ($n instanceof ConstructToken)) || $n instanceof ColonToken,
-      //     $n instanceof SimpleTypeSpecifier || $n instanceof ColonToken,
-      // );
-      $php = $this->interate_children($node, $parents, $php);
-      return $php;
-    }
-
-    if ($node instanceof ListItem) {
-      $php = $this->interate_children($node, $parents, $php);
-      return $php;
-    }
-    if ($node instanceof ParameterDeclaration) {
-      $php = $this->interate_children($node, $parents, $php);
-      return $php;
-    }
 
 
-    if ($node instanceof IfStatement) {
-      $php = $this->interate_children($node, $parents, $php);
-      return $php;
-    }
-    if ($node instanceof PrefixUnaryExpression) {
-      $php = $this->interate_children($node, $parents, $php);
-      return $php;
-    }
-    if ($node instanceof ReturnStatement) {
-      $php = $this->interate_children($node, $parents, $php);
-      return $php;
-    }
-    if ($node instanceof ElseClause) {
-      $php = $this->interate_children($node, $parents, $php);
-      return $php;
-    }
-    if ($node instanceof ObjectCreationExpression) {
-      $php = $this->interate_children($node, $parents, $php);
-      return $php;
-    }
     if ($node instanceof ConstructorCall) {
-
-      // $type = $node->getType()->getCode();
-      // $childs = $node->getChildren();
-      // $php = $this->sprinft($php, "$type$P");
-      // $parents[] = $node;
-      // foreach ($childs as $key => $next_node) {
-      //   if ($key !== "type")
-      //     $php = $this->transpile($next_node, $parents, $php);
-      // }
 
       $args = $node->getArgumentList();
       if (!\is_null($args)) {
@@ -761,33 +692,8 @@ final class HackToPHPLinter extends ASTLinter<EditableNode> {
       return $php;
     }
 
-    if ($node instanceof SimpleTypeSpecifier) { //e.g. constructor calls!
 
-      // $type = $node->getType()->getCode();
-      // $childs = $node->getChildren();
-      // $php = $this->sprinft($php, "$type$P");
-      // $parents[] = $node;
-      // foreach ($childs as $key => $next_node) {
-      //   if ($key !== "type")
-      //     $php = $this->transpile($next_node, $parents, $php);
-      // }
-
-      $php = $this->interate_children($node, $parents, $php);
-      return $php;
-    }
-
-    if ($node instanceof ArrayCreationExpression) {
-      $php = $this->interate_children($node, $parents, $php);
-      return $php;
-    }
     if ($node instanceof TupleExpression) {
-      // $childs = $node->getChildren();
-      // $php = $this->sprinft($php, "array$P");
-      // $parents[] = $node;
-      // foreach ($childs as $key => $next_node) {
-      //   if ($key !== "keyword")
-      //     $php = $this->transpile($next_node, $parents, $php);
-      // }
 
       $token = $node->getKeyword();
       $array_token =
@@ -797,37 +703,6 @@ final class HackToPHPLinter extends ASTLinter<EditableNode> {
       return $php;
     }
 
-    if ($node instanceof ParenthesizedExpression) {
-      $php = $this->interate_children($node, $parents, $php);
-      return $php;
-    }
-    if ($node instanceof SubscriptExpression) {
-      $php = $this->interate_children($node, $parents, $php);
-      return $php;
-    }
-    if ($node instanceof ConditionalExpression) {
-      $php = $this->interate_children($node, $parents, $php);
-      return $php;
-    }
-    // if ($node instanceof SafeMemberSelectionExpression) {
-
-    //   $safe_member_object = $node->getObject()->getCode();
-    //   $safe_member_name = $node->getName()->getCode();
-
-    //   $sub_ast = $this->ast_from_code(
-    //     "is_null($safe_member_object) ? null : $safe_member_object->$safe_member_name",
-    //   );
-    //   $node->rewriteDescendants(, )
-    //   $node->replace($node, $sub_ast);
-    //   $php = $this->interate_children($node, $parents, $php);
-    //   return $php;
-    // }
-    if (
-      $node instanceof ElementInitializer || $node instanceof FieldInitializer
-    ) {
-      $php = $this->interate_children($node, $parents, $php);
-      return $php;
-    }
 
     if ($node instanceof ShapeExpression) {
 
@@ -841,12 +716,6 @@ final class HackToPHPLinter extends ASTLinter<EditableNode> {
     }
 
     //Token stuff:
-
-
-    if ($node instanceof EndOfFile) {
-      $php = $this->sprinft($php, "");
-      return $php;
-    }
 
 
     if (
@@ -893,9 +762,36 @@ final class HackToPHPLinter extends ASTLinter<EditableNode> {
       $node instanceof WhileStatement ||
       $node instanceof ElseifClause ||
       $node instanceof ForStatement ||
-      $node instanceof PostfixUnaryExpression
+      $node instanceof PostfixUnaryExpression ||
+      $node instanceof ElementInitializer ||
+      $node instanceof FieldInitializer ||
+      $node instanceof ParenthesizedExpression ||
+      $node instanceof SubscriptExpression ||
+      $node instanceof ConditionalExpression ||
+      $node instanceof SimpleTypeSpecifier ||
+      $node instanceof ArrayCreationExpression ||
+      $node instanceof ListItem ||
+      $node instanceof ParameterDeclaration ||
+      $node instanceof IfStatement ||
+      $node instanceof PrefixUnaryExpression ||
+      $node instanceof ReturnStatement ||
+      $node instanceof ElseClause ||
+      $node instanceof ObjectCreationExpression ||
+      $node instanceof ClassishDeclaration ||
+      $node instanceof NamespaceBody ||
+      $node instanceof ExpressionStatement ||
+      $node instanceof FunctionDeclaration ||
+      $node instanceof MethodishDeclaration ||
+      $node instanceof Missing ||
+      $node instanceof AliasDeclaration
     ) {
       $php = $this->interate_children($node, $parents, $php);
+      return $php;
+    }
+
+
+    if ($node instanceof EndOfFile) {
+      $php = $this->sprinft($php, "");
       return $php;
     }
 
